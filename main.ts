@@ -30,12 +30,17 @@ function fail(message: string): never {
 function pngDimensions(buf: Buffer): { width: number; height: number } {
   // A PNG starts with an 8-byte signature, then a 25-byte IHDR chunk:
   // 4 bytes length, 4 bytes "IHDR", 4 bytes width, 4 bytes height (big-endian).
+  // It ends with a 12-byte IEND chunk: length 0, "IEND", 4-byte CRC.
   if (buf.length < 33) fail("entry.png is too short to be a PNG");
   if (!buf.subarray(0, 8).equals(PNG_MAGIC)) {
     fail("entry.png does not start with the PNG signature");
   }
   if (buf.toString("ascii", 12, 16) !== "IHDR") {
     fail("entry.png has no IHDR chunk where one is expected");
+  }
+  if (buf.length < 12 || buf.readUInt32BE(buf.length - 12) !== 0 ||
+      buf.toString("ascii", buf.length - 8, buf.length - 4) !== "IEND") {
+    fail("entry.png does not end with a valid IEND chunk");
   }
   return {
     width: buf.readUInt32BE(16),
